@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { isAxiosError } from "axios"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,7 +31,9 @@ export default function AcceptInvitePage() {
   const token = params.token as string
   const setUser = useAuthStore((state) => state.setUser)
   
-  const [status, setStatus] = useState<"loading" | "valid" | "invalid" | "success">("loading")
+  const [status, setStatus] = useState<"valid" | "invalid" | "success">(
+    token ? "valid" : "invalid"
+  )
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -40,16 +43,6 @@ export default function AcceptInvitePage() {
   } = useForm<AcceptForm>({
     resolver: zodResolver(acceptSchema),
   })
-
-  useEffect(() => {
-    // For now, we assume the token is valid if it exists
-    // The actual validation happens when they submit
-    if (token) {
-      setStatus("valid")
-    } else {
-      setStatus("invalid")
-    }
-  }, [token])
 
   const onSubmit = async (data: AcceptForm) => {
     setError(null)
@@ -67,22 +60,16 @@ export default function AcceptInvitePage() {
       
       setStatus("success")
       
-      // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         router.push("/dashboard")
       }, 2000)
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid or expired invitation")
+    } catch (err: unknown) {
+      const message = isAxiosError<{ message?: string }>(err)
+        ? err.response?.data?.message || "Invalid or expired invitation"
+        : "Invalid or expired invitation"
+      setError(message)
       setStatus("invalid")
     }
-  }
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
-      </div>
-    )
   }
 
   if (status === "success") {

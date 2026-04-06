@@ -44,8 +44,8 @@ docker-compose ps
 | Service | URL | Credentials |
 |---------|-----|-------------|
 | Frontend | http://localhost:3000 | - |
-| Backend API | http://localhost:5000 | - |
-| API Docs (Swagger) | http://localhost:5000/swagger | - |
+| Backend API | http://localhost:5048 | - |
+| API Docs (Swagger) | http://localhost:5048/swagger | - |
 | MailHog (Email UI) | http://localhost:8025 | - |
 | pgAdmin | http://localhost:5050 | admin@synod.dev / admin |
 | PostgreSQL | localhost:5432 | synod / synod_dev_password |

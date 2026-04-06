@@ -1,0 +1,126 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Synod.Api.Models.Requests;
+using Synod.Api.Models.Responses;
+using Synod.Api.Services;
+
+namespace Synod.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class FormsController : ControllerBase
+{
+    private readonly IFormService _formService;
+
+    public FormsController(IFormService formService)
+    {
+        _formService = formService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var userId = GetCurrentUserId();
+        var role = GetCurrentUserRole();
+
+        var forms = role == "SuperAdmin"
+            ? await _formService.GetAllAsync()
+            : await _formService.GetByUserAsync(userId!.Value);
+
+        return Ok(ApiResponse<List<FormDto>>.Ok(forms));
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var form = await _formService.GetByIdAsync(id);
+        if (form == null)
+            return NotFound(ApiResponse<object>.Fail("Form not found"));
+
+        return Ok(ApiResponse<FormDetailDto>.Ok(form));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateFormRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return Unauthorized();
+
+        if (await _formService.SlugExistsAsync(request.Slug))
+            return BadRequest(ApiResponse<object>.Fail("Slug already exists"));
+
+        var form = await _formService.CreateAsync(request, userId.Value);
+        if (form == null)
+            return BadRequest(ApiResponse<object>.Fail("Failed to create form"));
+
+        return Ok(ApiResponse<FormDto>.Ok(form, "Form created"));
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateFormRequest request)
+    {
+        var form = await _formService.UpdateAsync(id, request);
+        if (form == null)
+            return NotFound(ApiResponse<object>.Fail("Form not found"));
+
+        return Ok(ApiResponse<FormDto>.Ok(form, "Form updated"));
+    }
+
+    [HttpPost("{id}/publish")]
+    public async Task<IActionResult> Publish(Guid id)
+    {
+        var result = await _formService.PublishAsync(id);
+        if (!result)
+            return NotFound(ApiResponse<object>.Fail("Form not found"));
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Form published"));
+    }
+
+    [HttpPost("{id}/close")]
+    public async Task<IActionResult> Close(Guid id)
+    {
+        var result = await _formService.CloseAsync(id);
+        if (!result)
+            return NotFound(ApiResponse<object>.Fail("Form not found"));
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Form closed"));
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var result = await _formService.DeleteAsync(id);
+        if (!result)
+            return NotFound(ApiResponse<object>.Fail("Form not found"));
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Form deleted"));
+    }
+
+    [HttpGet("{id}/submissions")]
+    public async Task<IActionResult> GetSubmissions(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var submissions = await _formService.GetSubmissionsAsync(id, page, pageSize);
+        return Ok(ApiResponse<FormSubmissionListDto>.Ok(submissions));
+    }
+
+    [HttpGet("check-slug/{slug}")]
+    public async Task<IActionResult> CheckSlug(string slug)
+    {
+        var exists = await _formService.SlugExistsAsync(slug);
+        return Ok(ApiResponse<object>.Ok(new { exists }));
+    }
+
+    private Guid? GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(claim, out var id) ? id : null;
+    }
+
+    private string? GetCurrentUserRole()
+    {
+        return User.FindFirst(ClaimTypes.Role)?.Value;
+    }
+}

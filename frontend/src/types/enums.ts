@@ -1,0 +1,8 @@
+export type UserRole = "SuperAdmin" | "Leader"
+export type UserStatus = "Pending" | "Active" | "Suspended" | "Deactivated"
+export type OrganizationType = "Chapter" | "Club" | "Society" | "Other"
+export type NewsletterStatus = "Draft" | "Scheduled" | "Sending" | "Sent" | "Failed"
+export type FormStatus = "Draft" | "Active" | "Closed" | "Archived"
+export type EventStatus = "Draft" | "PendingApproval" | "Approved" | "Rejected" | "Cancelled" | "Completed"
+export type ApprovalStatus = "Pending" | "Approved" | "Rejected"
+export type InvitationStatus = "Pending" | "Accepted" | "Expired" | "Revoked"

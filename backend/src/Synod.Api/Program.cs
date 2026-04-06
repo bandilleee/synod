@@ -46,6 +46,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // === CORS ===
 builder.Services.AddCors(options =>
@@ -127,4 +131,5 @@ using (var scope = app.Services.CreateScope())
 // === Start ===
 Log.Information("Synod API starting on {Urls}", app.Urls);
 app.Run();
+
 

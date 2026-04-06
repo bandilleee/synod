@@ -18,7 +18,7 @@ api.interceptors.request.use(
       : null
     
     if (token) {
-      config.headers.Authorization = Bearer 
+      config.headers.Authorization = "Bearer " + token
     }
     return config
   },
@@ -35,21 +35,19 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       
-      // Try to refresh token (will implement in Phase 3)
       const refreshToken = localStorage.getItem("refreshToken")
       if (refreshToken) {
         try {
-          const response = await axios.post(${API_URL}/auth/refresh, {
+          const response = await axios.post(API_URL + "/auth/refresh", {
             refreshToken,
           })
           
           const { accessToken } = response.data.data
           localStorage.setItem("accessToken", accessToken)
           
-          originalRequest.headers.Authorization = Bearer 
+          originalRequest.headers.Authorization = "Bearer " + accessToken
           return api(originalRequest)
         } catch {
-          // Refresh failed - clear tokens and redirect to login
           localStorage.removeItem("accessToken")
           localStorage.removeItem("refreshToken")
           window.location.href = "/login"

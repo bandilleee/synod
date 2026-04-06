@@ -1,0 +1,64 @@
+# ===== Dependencies =====
+node_modules/
+.pnp/
+.pnp.js
+
+# ===== Build Outputs =====
+# Next.js
+.next/
+out/
+dist/
+build/
+
+# .NET
+bin/
+obj/
+publish/
+
+# ===== Environment Files =====
+.env
+.env.local
+.env.*.local
+appsettings.Development.json
+appsettings.Production.json
+!appsettings.json
+
+# ===== IDE & Editors =====
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+.vs/
+*.user
+*.userosscache
+*.suo
+
+# ===== Operating System =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Logs =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Testing =====
+coverage/
+.nyc_output/
+TestResults/
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== .NET Specific =====
+*.cache
+/packages/
+project.lock.json
+project.fragment.lock.json
+
+# ===== Misc =====
+.vercel
+.turbo

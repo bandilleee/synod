@@ -1,0 +1,107 @@
+# ===========================================
+# SYNOD - Docker Compose (Development)
+# ===========================================
+# Start:   docker-compose up -d
+# Stop:    docker-compose down
+# Logs:    docker-compose logs -f [service]
+# Reset:   docker-compose down -v (WARNING: deletes data)
+# ===========================================
+
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  # Primary data store for all application data
+  # Access: localhost:5432
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: synod-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-synod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synod_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-synod}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================
+  # Redis Cache
+  # ===========================================
+  # Used for: session storage, rate limiting, caching
+  # Access: localhost:6379
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: synod-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================
+  # MailHog - Email Testing
+  # ===========================================
+  # Catches ALL outgoing emails for inspection
+  # SMTP: localhost:1025 (configure app to send here)
+  # Web UI: http://localhost:8025 (view caught emails)
+  # ===========================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: synod-mailhog
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    restart: unless-stopped
+    logging:
+      driver: none    # Suppress verbose logs
+
+  # ===========================================
+  # pgAdmin - Database GUI
+  # ===========================================
+  # Web-based PostgreSQL administration
+  # Access: http://localhost:5050
+  # Login: admin@synod.dev / admin
+  # ===========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: synod-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@synod.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+# ===========================================
+# Persistent Volumes
+# ===========================================
+# Data survives container restarts
+# Delete with: docker-compose down -v
+# ===========================================
+volumes:
+  postgres_data:
+    name: synod_postgres_data
+  redis_data:
+    name: synod_redis_data
+  pgadmin_data:
+    name: synod_pgadmin_data

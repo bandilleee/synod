@@ -31,6 +31,18 @@ export function DashboardSidebar() {
   const router = useRouter()
   const { user, logout } = useAuthStore()
 
+  const userMeta =
+    typeof user?.organization === "string"
+      ? user.organization
+      : user?.organization &&
+          typeof user.organization === "object" &&
+          "name" in user.organization &&
+          typeof user.organization.name === "string"
+        ? user.organization.name
+        : user?.role
+          ? String(user.role)
+          : ""
+
   const handleLogout = async () => {
     await logout()
     router.push("/login")
@@ -82,7 +94,7 @@ export function DashboardSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-zinc-200 font-medium truncate">{user?.name}</p>
-            <p className="text-[10px] text-zinc-500 truncate">{user?.organizationName || user?.role}</p>
+            <p className="text-[10px] text-zinc-500 truncate">{userMeta}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -96,3 +108,4 @@ export function DashboardSidebar() {
     </aside>
   )
 }
+

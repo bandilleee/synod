@@ -78,9 +78,40 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<UserDto>.Ok(user));
     }
 
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return Unauthorized();
+
+        var user = await _authService.UpdateProfileAsync(userId.Value, request);
+        if (user == null)
+            return BadRequest(ApiResponse<object>.Fail("Failed to update profile. Email may already be in use."));
+
+        return Ok(ApiResponse<UserDto>.Ok(user, "Profile updated successfully"));
+    }
+
+    [Authorize]
+    [HttpPut("password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return Unauthorized();
+
+        var result = await _authService.ChangePasswordAsync(userId.Value, request);
+        if (!result)
+            return BadRequest(ApiResponse<object>.Fail("Current password is incorrect"));
+
+        return Ok(ApiResponse<object>.Ok(new { }, "Password changed successfully"));
+    }
+
     private Guid? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(claim, out var id) ? id : null;
     }
 }
+

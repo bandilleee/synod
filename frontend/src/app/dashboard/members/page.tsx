@@ -86,13 +86,20 @@ export default function MembersPage() {
 
   const handleExport = async () => {
     try {
-      const members = await exportMembers.mutateAsync()
-      const filteredMembers = subscribed === undefined
-        ? members
-        : members.filter((m) => m.isSubscribed === subscribed)
+      let members: Member[] = []
+
+      if (subscribed === undefined) {
+        const [subscribedMembers, unsubscribedMembers] = await Promise.all([
+          exportMembers.mutateAsync(true),
+          exportMembers.mutateAsync(false),
+        ])
+        members = [...subscribedMembers, ...unsubscribedMembers]
+      } else {
+        members = await exportMembers.mutateAsync(subscribed)
+      }
       
       const headers = ["Email", "Name", "Phone", "Subscribed", "Source Form", "Created"]
-      const rows = filteredMembers.map(m => [
+      const rows = members.map(m => [
         m.email,
         m.name || "",
         m.phone || "",

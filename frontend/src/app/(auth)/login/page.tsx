@@ -37,7 +37,13 @@ export default function LoginPage() {
     const success = await login(data.email, data.password)
 
     if (success) {
-      router.push("/dashboard")
+      // Redirect based on role
+      const user = useAuthStore.getState().user
+      if (user?.role === "SuperAdmin") {
+        router.push("/admin")
+      } else {
+        router.push("/dashboard")
+      }
     } else {
       setError("Invalid email or password")
     }
@@ -100,3 +106,4 @@ export default function LoginPage() {
     </Card>
   )
 }
+

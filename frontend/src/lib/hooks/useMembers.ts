@@ -94,7 +94,7 @@ export function useDeleteMember() {
 }
 
 export function useExportMembers() {
-  return useMutation({
+  return useMutation<Member[], Error, boolean>({
     mutationFn: async (subscribedOnly = true) => {
       const response = await api.get("/members/export?subscribedOnly=" + subscribedOnly)
       return response.data.data as Member[]

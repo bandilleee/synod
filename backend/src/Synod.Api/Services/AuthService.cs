@@ -15,6 +15,8 @@ public interface IAuthService
     Task<AuthResponse?> AcceptInvitationAsync(AcceptInvitationRequest request);
     Task<bool> LogoutAsync(Guid userId);
     Task<UserDto?> GetCurrentUserAsync(Guid userId);
+    Task<UserDto?> UpdateProfileAsync(Guid userId, UpdateProfileRequest request);
+    Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
 }
 
 public class AuthService : IAuthService
@@ -170,6 +172,52 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<UserDto?> UpdateProfileAsync(Guid userId, UpdateProfileRequest request)
+    {
+        var user = await _db.Users
+            .Include(u => u.Organization)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+            user.Name = request.Name;
+
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            // Check if email is already taken by another user
+            var emailExists = await _db.Users.AnyAsync(u => u.Email.ToLower() == request.Email.ToLower() && u.Id != userId);
+            if (emailExists)
+                return null;
+
+            user.Email = request.Email.ToLower();
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return MapToDto(user);
+    }
+
+    public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null)
+            return false;
+
+        // Verify current password
+        if (!_hasher.Verify(request.CurrentPassword, user.PasswordHash))
+            return false;
+
+        // Update to new password
+        user.PasswordHash = _hasher.Hash(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return true;
+    }
+
     private static UserDto MapToDto(User user) => new()
     {
         Id = user.Id,
@@ -182,5 +230,7 @@ public class AuthService : IAuthService
         OrganizationName = user.Organization?.Name
     };
 }
+
+
 
 

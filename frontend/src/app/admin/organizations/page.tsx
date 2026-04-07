@@ -31,16 +31,25 @@ import { useOrganizations, useDeleteOrganization } from "@/lib/hooks"
 import { formatDate } from "@/lib/utils"
 import { OrganizationForm } from "./OrganizationForm"
 
+type Organization = NonNullable<ReturnType<typeof useOrganizations>["data"]>[number]
+
 export default function OrganizationsPage() {
   const { data: organizations, isLoading } = useOrganizations()
   const deleteOrganization = useDeleteOrganization()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [editingOrg, setEditingOrg] = useState<any>(null)
+  const [editingOrg, setEditingOrg] = useState<Organization | null>(null)
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this organization?")) {
       await deleteOrganization.mutateAsync(id)
     }
+  }
+
+  const getLeaderCount = (org: Organization) => {
+    const withLeaderCount = org as Organization & { leaderCount?: number; leaders?: unknown[] }
+    if (typeof withLeaderCount.leaderCount === "number") return withLeaderCount.leaderCount
+    if (Array.isArray(withLeaderCount.leaders)) return withLeaderCount.leaders.length
+    return 0
   }
 
   return (
@@ -92,7 +101,7 @@ export default function OrganizationsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-zinc-400">{org.type}</TableCell>
-                  <TableCell className="text-zinc-400">{org.leaderCount}</TableCell>
+                  <TableCell className="text-zinc-400">{getLeaderCount(org)}</TableCell>
                   <TableCell>
                     <Badge variant={org.isActive ? "default" : "secondary"}>
                       {org.isActive ? "Active" : "Inactive"}

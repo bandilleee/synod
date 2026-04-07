@@ -1,6 +1,6 @@
 "use client"
 
-import { useForm } from "react-hook-form"
+import { useForm, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Loader2 } from "lucide-react"
@@ -30,6 +30,10 @@ const updateSchema = z.object({
   isActive: z.boolean(),
 })
 
+type CreateOrganizationFormValues = z.infer<typeof createSchema>
+type UpdateOrganizationFormValues = z.infer<typeof updateSchema>
+type OrganizationFormValues = CreateOrganizationFormValues | UpdateOrganizationFormValues
+
 interface OrganizationFormProps {
   organization?: {
     id: string
@@ -51,9 +55,8 @@ export function OrganizationForm({ organization, onSuccess }: OrganizationFormPr
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
-  } = useForm({
+  } = useForm<OrganizationFormValues>({
     resolver: zodResolver(isEditing ? updateSchema : createSchema),
     defaultValues: isEditing
       ? {
@@ -69,25 +72,29 @@ export function OrganizationForm({ organization, onSuccess }: OrganizationFormPr
         },
   })
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: OrganizationFormValues) => {
     try {
       if (isEditing) {
+        const updateData = data as UpdateOrganizationFormValues
         await updateOrganization.mutateAsync({
           id: organization.id,
           data: {
-            name: data.name,
-            description: data.description,
-            isActive: data.isActive,
+            name: updateData.name,
+            description: updateData.description,
+            isActive: updateData.isActive,
           },
         })
       } else {
-        await createOrganization.mutateAsync(data)
+        const createData = data as CreateOrganizationFormValues
+        await createOrganization.mutateAsync(createData)
       }
       onSuccess()
     } catch (error) {
       console.error("Failed to save organization:", error)
     }
   }
+
+  const createErrors = errors as FieldErrors<CreateOrganizationFormValues>
 
   const generateSlug = (name: string) => {
     return name
@@ -125,8 +132,8 @@ export function OrganizationForm({ organization, onSuccess }: OrganizationFormPr
               {...register("slug")}
               className="bg-zinc-800 border-zinc-700"
             />
-            {errors.slug && (
-              <p className="text-sm text-red-500">{errors.slug.message as string}</p>
+            {createErrors.slug && (
+              <p className="text-sm text-red-500">{createErrors.slug.message as string}</p>
             )}
           </div>
 
@@ -143,8 +150,8 @@ export function OrganizationForm({ organization, onSuccess }: OrganizationFormPr
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
-            {errors.type && (
-              <p className="text-sm text-red-500">{errors.type.message as string}</p>
+            {createErrors.type && (
+              <p className="text-sm text-red-500">{createErrors.type.message as string}</p>
             )}
           </div>
         </>

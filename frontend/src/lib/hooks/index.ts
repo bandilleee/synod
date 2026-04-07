@@ -3,3 +3,5 @@ export * from "./useForms"
 export * from "./useMembers"
 export * from "./useNewsletters"
 export * from "./useEvents"
+
+export * from './useActivity'

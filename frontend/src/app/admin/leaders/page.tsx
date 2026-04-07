@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Users, MoreHorizontal, UserX, UserCheck, Trash2, Mail } from "lucide-react"
+import { Plus, Users, MoreHorizontal, UserX, UserCheck, Trash2 } from "lucide-react"
 import { PageHeader, EmptyState } from "@/components/shared"
 import { TableSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
@@ -123,7 +123,7 @@ export default function LeadersPage() {
                   </TableCell>
                   <TableCell className="text-zinc-400">{leader.email}</TableCell>
                   <TableCell className="text-zinc-400">
-                    {leader.organizationName || "-"}
+                    {leader.organization?.name || "-"}
                   </TableCell>
                   <TableCell>{getStatusBadge(leader.status)}</TableCell>
                   <TableCell className="text-right">

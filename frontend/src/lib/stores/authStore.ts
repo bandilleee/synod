@@ -2,6 +2,20 @@ import { create } from "zustand"
 import { api } from "@/lib/api"
 import type { User } from "@/types"
 
+// Helper to set cookie
+const setCookie = (name: string, value: string, days: number = 7) => {
+  if (typeof document === "undefined") return
+  const expires = new Date()
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`
+}
+
+// Helper to delete cookie
+const deleteCookie = (name: string) => {
+  if (typeof document === "undefined") return
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+}
+
 interface AuthState {
   user: User | null
   isLoading: boolean
@@ -22,8 +36,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await api.post("/auth/login", { email, password })
       const { accessToken, refreshToken, user } = response.data.data
 
+      // Store in localStorage for API client
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
+      
+      // Also set cookies for middleware
+      setCookie("accessToken", accessToken, 1) // 1 day for access token
+      setCookie("refreshToken", refreshToken, 7) // 7 days for refresh token
 
       set({ user, isAuthenticated: true, isLoading: false })
       return true
@@ -40,6 +59,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } finally {
       localStorage.removeItem("accessToken")
       localStorage.removeItem("refreshToken")
+      deleteCookie("accessToken")
+      deleteCookie("refreshToken")
       set({ user: null, isAuthenticated: false })
     }
   },
@@ -57,6 +78,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       localStorage.removeItem("accessToken")
       localStorage.removeItem("refreshToken")
+      deleteCookie("accessToken")
+      deleteCookie("refreshToken")
       set({ user: null, isAuthenticated: false, isLoading: false })
     }
   },

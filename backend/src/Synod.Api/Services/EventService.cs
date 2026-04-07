@@ -70,7 +70,7 @@ public class EventService : IEventService
     {
         // Get all leaders except the creator
         var otherLeaders = await _db.Users
-            .Where(u => u.Id != userId && u.Status == UserStatus.Active)
+            .Where(u => u.Id != userId && u.Status == UserStatus.Active && u.Role == UserRole.Leader)
             .ToListAsync();
 
         var requiredApprovals = otherLeaders.Count;
@@ -134,6 +134,7 @@ public class EventService : IEventService
         var evt = await _db.Events
             .Include(e => e.CreatedBy)
             .Include(e => e.Approvals)
+                .ThenInclude(a => a.User)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (evt == null) return null;
@@ -141,6 +142,8 @@ public class EventService : IEventService
         // Only creator can update, and only if pending or approved (not completed/cancelled)
         if (evt.CreatedById != userId) return null;
         if (evt.Status == EventStatus.Completed || evt.Status == EventStatus.Cancelled) return null;
+
+        var wasApproved = evt.Status == EventStatus.Approved;
 
         if (request.Title != null)
             evt.Title = request.Title;
@@ -155,6 +158,26 @@ public class EventService : IEventService
 
         evt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // If event was already approved, notify all other leaders about the edit
+        if (wasApproved)
+        {
+            var editor = evt.CreatedBy;
+            var otherLeaders = evt.Approvals.Select(a => a.User).Where(u => u != null).ToList();
+            
+            foreach (var leader in otherLeaders)
+            {
+                try
+                {
+                    await _emailService.SendEmailAsync(
+                        leader!.Email,
+                        "Event Updated: " + evt.Title,
+                        BuildEventUpdatedEmail(evt, editor?.Name ?? "A leader")
+                    );
+                }
+                catch { }
+            }
+        }
 
         return MapToDto(evt);
     }
@@ -424,6 +447,44 @@ public class EventService : IEventService
                 <p>Your event <strong>{evt.Title}</strong> was rejected by {rejectorName}.</p>
                 {(string.IsNullOrEmpty(reason) ? "" : $"<p><strong>Reason:</strong> {reason}</p>")}
             </div>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
+    private string BuildEventUpdatedEmail(Event evt, string editorName)
+    {
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: -apple-system, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: #1e293b; color: white; padding: 20px; text-align: center; }}
+        .content {{ padding: 20px; background: #fff; }}
+        .updated {{ background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+        .event-details {{ background: #f9fafb; padding: 15px; border-radius: 8px; margin: 15px 0; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>SYNOD</h1>
+        </div>
+        <div class='content'>
+            <div class='updated'>
+                <h3>⚠️ Event Updated</h3>
+                <p><strong>{editorName}</strong> has made changes to an approved event.</p>
+            </div>
+            <div class='event-details'>
+                <h3>{evt.Title}</h3>
+                <p><strong>Date:</strong> {evt.Date:MMMM dd, yyyy 'at' h:mm tt}</p>
+                {(string.IsNullOrEmpty(evt.Location) ? "" : $"<p><strong>Location:</strong> {evt.Location}</p>")}
+                {(string.IsNullOrEmpty(evt.Description) ? "" : $"<p>{evt.Description}</p>")}
+            </div>
+            <p>Please log in to Synod to review the updated event details.</p>
         </div>
     </div>
 </body>

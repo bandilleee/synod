@@ -1,8 +1,7 @@
-@'
 # Synod Project - Context Bridge
 
 > **Last Updated:** 2026-04-07
-> **Current Phase:** Phase 8 Complete - Starting Phase 9
+> **Current Phase:** Phase 9 Complete - Ready for Phase 10
 
 ---
 
@@ -31,11 +30,7 @@
 
 ## Docker Services
 ```bash
-# Start all services
 docker-compose up -d
-
-# View services
-docker ps
 ```
 
 | Service | Port | Credentials |
@@ -48,297 +43,148 @@ docker ps
 
 ---
 
-## Project Structure
-
-C:\Projects\Synod
-├── frontend/
-│   └── src/
-│       ├── app/                    # Next.js pages
-│       │   ├── (auth)/            
-│       │   ├── admin/             
-│       │   ├── dashboard/         
-│       │   └── f/[slug]/          
-│       ├── components/
-│       │   ├── ui/                
-│       │   ├── shared/            
-│       │   ├── skeletons/         
-│       │   └── newsletter/        
-│       └── lib/
-│           ├── api/               
-│           ├── hooks/             
-│           └── utils.ts           
-├── backend/
-│   └── src/
-│       └── Synod.Api/
-│           ├── Controllers/       
-│           ├── Services/          
-│           ├── Models/
-│           │   ├── Entities/      
-│           │   ├── Requests/      
-│           │   └── Responses/     
-│           ├── Data/              
-│           └── Infrastructure/    
-├── docker-compose.yml
-└── CONTEXT_BRIDGE.md
-
----
-
 ## Completed Phases
 
-### Phase 0: Project Setup ✅
-- Git repository initialized
-- Docker Compose with PostgreSQL, Redis, MailHog, pgAdmin
-- Environment configuration
-
-### Phase 1: Backend Foundation ✅
-- .NET 8 Web API project structure
-- Entity Framework Core with PostgreSQL
-- All database entities created
-- DbContext with configurations
-
-### Phase 2: Frontend Foundation ✅
-- Next.js 16 with App Router
-- Tailwind CSS v4 + shadcn/ui components
-- API client with axios (interceptors for auth)
-- React Query for data fetching
-
-### Phase 3: Authentication ✅
-- JWT authentication with refresh tokens
-- Login page
-- Invitation acceptance flow
-- Protected routes middleware
-- Auth store with Zustand
-
-### Phase 4: Admin Panel ✅
-- Super Admin dashboard with stats
-- Organization management (CRUD)
-- Leader invitation system
-- Leader management (view, suspend, remove)
+### Phase 0-4: Foundation ✅
+- Project setup, Docker, backend/frontend foundation
+- Authentication with JWT
+- Admin panel with organization/leader management
 
 ### Phase 5: Form Builder ✅
 - Drag-and-drop form builder
-- Field types: text, email, phone, number, textarea, select, radio, checkbox, date
-- Field validation and conditional logic
 - Public form rendering (`/f/[slug]`)
 - Form submissions with member auto-creation
-- Submissions table with field labels
 
 ### Phase 6: Member Management ✅
-- Members auto-created from form submissions (email field detection)
 - Members list with search, filter, pagination
-- Stats cards (total, subscribed, unsubscribed, new this month)
-- CSV export
-- Resubscribe/delete members
-- Confirm delete dialog (reusable component)
+- CSV export, resubscribe/delete
 
 ### Phase 7: Newsletter Studio ✅
-- TipTap rich text editor with full toolbar
-- Newsletter CRUD (create, edit, delete drafts)
-- TipTap JSON → HTML conversion
-- Preview page (desktop/mobile toggle)
-- Send test email
+- TipTap rich text editor
+- Preview (desktop/mobile), send test email
 - Send to all subscribers with personalization
-- Email templates with unsubscribe link
 
-### Phase 8: Event Collaboration 🔄 (Backend Complete)
-- Event CRUD API
-- Approval workflow (all leaders must approve)
-- Email notifications for approval requests
-- Approve/reject with comments
-- **Next:** Frontend event pages
+### Phase 8: Event Collaboration ✅
+- Event CRUD with approval workflow
+- Only Leaders participate in approvals (not SuperAdmin)
+- All other Leaders must approve for event confirmation
+- Email notifications: approval request, approved, rejected, event updated
+- Only event creator can edit
 
----
-
-## Current Database Entities
-
-| Entity | Table | Description |
-|--------|-------|-------------|
-| User | Users | Leaders and SuperAdmin |
-| Organization | Organizations | Chapters, clubs, societies |
-| Invitation | Invitations | Leader invitations |
-| Form | Forms | Form builder forms |
-| FormSubmission | FormSubmissions | Form responses |
-| Member | Members | Collected from form submissions |
-| Newsletter | Newsletters | Email campaigns |
-| NewsletterRecipient | NewsletterRecipients | Delivery tracking |
-| NewsletterTemplate | NewsletterTemplates | Pre-built templates |
-| Event | Events | Collaborative events |
-| EventApproval | EventApprovals | Approval workflow |
-| AuditLog | AuditLogs | Activity tracking |
+### Phase 9: Activity & Audit Logs ✅
+- Comprehensive logging across all modules
+- Activity page for Leaders (`/dashboard/activity`)
+- Audit Logs page for Admin (`/admin/activity`)
+- Settings pages for both Admin and Leaders
+- Route protection middleware (SuperAdmin → /admin, Leader → /dashboard)
 
 ---
 
-## API Endpoints
+## Route Protection
+
+| User Role | Allowed Routes | Redirect |
+|-----------|----------------|----------|
+| SuperAdmin | `/admin/*` | `/dashboard` → `/admin` |
+| Leader | `/dashboard/*` | `/admin` → `/dashboard` |
+| Unauthenticated | `/login`, `/f/*`, `/invite/*` | Protected routes → `/login` |
+
+---
+
+## API Endpoints Summary
 
 ### Auth (`/api/auth`)
-- `POST /login` - Login with email/password
-- `POST /refresh` - Refresh access token
-- `POST /logout` - Logout
-- `POST /accept-invite` - Accept leader invitation
-- `GET /me` - Get current user
+- `POST /login`, `/refresh`, `/logout`, `/accept-invite`
+- `GET /me`
+- `PUT /profile` - Update name/email
+- `PUT /password` - Change password
 
 ### Admin (`/api/admin`) - SuperAdmin only
-- `GET /stats` - Dashboard statistics
-- `GET /organizations` - List organizations
-- `POST /organizations` - Create organization
-- `PUT /organizations/{id}` - Update organization
-- `DELETE /organizations/{id}` - Delete organization
-- `GET /leaders` - List leaders
-- `POST /leaders/invite` - Invite leader
-- `POST /leaders/{id}/suspend` - Suspend leader
-- `DELETE /leaders/{id}` - Remove leader
+- Organizations CRUD, Leaders invite/manage
 
 ### Forms (`/api/forms`)
-- `GET /` - List forms
-- `GET /{id}` - Get form
-- `POST /` - Create form
-- `PUT /{id}` - Update form
-- `DELETE /{id}` - Delete form
-- `POST /{id}/publish` - Publish form
-- `POST /{id}/close` - Close form
-- `GET /{id}/submissions` - Get submissions
+- CRUD, publish/close, submissions
 
 ### Public Forms (`/api/public/forms`)
-- `GET /{slug}` - Get public form
-- `POST /{slug}/submit` - Submit form
+- `GET /{slug}`, `POST /{slug}/submit`
 
 ### Members (`/api/members`)
-- `GET /` - List members (with search, filter, pagination)
-- `GET /stats` - Member statistics
-- `GET /{id}` - Get member
-- `POST /{id}/resubscribe` - Resubscribe member
-- `DELETE /{id}` - Delete member
-- `GET /export` - Export to CSV
+- List, stats, export, resubscribe, delete
 
 ### Newsletters (`/api/newsletters`)
-- `GET /` - List newsletters
-- `GET /stats` - Newsletter statistics
-- `GET /templates` - List templates
-- `GET /{id}` - Get newsletter
-- `POST /` - Create newsletter
-- `PUT /{id}` - Update newsletter
-- `DELETE /{id}` - Delete newsletter
-- `GET /{id}/preview` - Get HTML preview
-- `POST /{id}/send-test` - Send test email
-- `POST /{id}/send` - Send to all subscribers
+- CRUD, templates, preview, send-test, send
 
 ### Events (`/api/events`)
-- `GET /` - List events
-- `GET /pending` - Get pending approvals for current user
-- `GET /{id}` - Get event with approvals
-- `POST /` - Create event
-- `PUT /{id}` - Update event
-- `DELETE /{id}` - Delete event
-- `POST /{id}/approve` - Approve event
-- `POST /{id}/reject` - Reject event
-- `POST /{id}/cancel` - Cancel event
+- CRUD, approve, reject, cancel
+
+### Activity (`/api/activity`)
+- `GET /` - All activities (paginated, filterable)
+- `GET /my` - Current user's activities
 
 ---
 
-## Frontend Hooks
+## Frontend Pages
 
-All hooks are in `frontend/src/lib/hooks/`:
+### Admin Pages (`/admin/*`)
+| Route | Description |
+|-------|-------------|
+| `/admin` | Admin dashboard |
+| `/admin/organizations` | Manage organizations |
+| `/admin/leaders` | Manage leaders |
+| `/admin/activity` | Audit logs |
+| `/admin/settings` | Admin profile settings |
 
-| File | Hooks |
-|------|-------|
-| `useAdmin.ts` | useAdminStats, useOrganizations, useLeaders, useInviteLeader, etc. |
-| `useForms.ts` | useForms, useForm, useCreateForm, usePublishForm, useFormSubmissions, etc. |
-| `useMembers.ts` | useMembers, useMemberStats, useDeleteMember, useExportMembers, etc. |
-| `useNewsletters.ts` | useNewsletters, useNewsletter, useCreateNewsletter, useSendNewsletter, etc. |
+### Leader Pages (`/dashboard/*`)
+| Route | Description |
+|-------|-------------|
+| `/dashboard` | Leader home |
+| `/dashboard/forms` | Forms list, builder |
+| `/dashboard/members` | Members management |
+| `/dashboard/newsletters` | Newsletter studio |
+| `/dashboard/events` | Events list |
+| `/dashboard/events/new` | Create event |
+| `/dashboard/events/[id]` | Event detail + approve/reject |
+| `/dashboard/events/[id]/edit` | Edit event (creator only) |
+| `/dashboard/activity` | Activity feed |
+| `/dashboard/settings` | Profile settings |
 
----
-
-## Key Files Reference
-
-### Backend Services
-- `Services/AuthService.cs` - Authentication logic
-- `Services/AdminService.cs` - Admin operations
-- `Services/FormService.cs` - Form CRUD + submissions + member creation
-- `Services/MemberService.cs` - Member management
-- `Services/NewsletterService.cs` - Newsletter + TipTap HTML conversion
-- `Services/EventService.cs` - Event + approval workflow
-- `Services/EmailService.cs` - MailKit email sending
-
-### Frontend Components
-- `components/shared/ConfirmDialog.tsx` - Reusable confirmation dialog
-- `components/shared/PageHeader.tsx` - Page header with title/description/actions
-- `components/newsletter/NewsletterEditor.tsx` - TipTap rich text editor
-- `app/dashboard/forms/FormBuilder.tsx` - Drag-and-drop form builder
-
----
-
-## Common Patterns
-
-### API Client Import
-```typescript
-import { api } from "@/lib/api/client"
-```
-
-### React Query Hook Pattern
-```typescript
-export function useItems() {
-  return useQuery({
-    queryKey: ["items"],
-    queryFn: async () => {
-      const response = await api.get("/items")
-      return response.data.data
-    },
-  })
-}
-
-export function useCreateItem() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: CreateItemData) => {
-      const response = await api.post("/items", data)
-      return response.data.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items"] })
-    },
-  })
-}
-```
-
-### PowerShell File Creation
-```powershell
-# For simple content
-@'
-file content here
-'@ | Out-File -FilePath "path/to/file.ts" -Encoding UTF8
-
-# For string replacement
-$content = Get-Content "path/to/file.ts" -Raw
-$content = $content -replace "old text", "new text"
-$content | Set-Content "path/to/file.ts" -Encoding UTF8
-
-# For paths with brackets
-Get-Content "app/f/`[slug`]/page.tsx" -Raw
-```
-
-### Service Registration in Program.cs
-```csharp
-builder.Services.AddScoped<IServiceName, ServiceName>();
-```
+### Public Pages
+| Route | Description |
+|-------|-------------|
+| `/login` | Login page |
+| `/f/[slug]` | Public form |
+| `/invite/[token]` | Accept invitation |
 
 ---
 
 ## Credentials
 
-| Account | Email | Password |
-|---------|-------|----------|
-| Super Admin | admin@synod.dev | Admin123! |
+| Account | Email | Password | Role |
+|---------|-------|----------|------|
+| Super Admin | admin@synod.dev | Admin123! | SuperAdmin |
 
 ---
 
-## Commands Quick Reference
+## Remaining Phases
+
+### Phase 10: Polish & Testing
+- [ ] Loading states audit
+- [ ] Error boundaries
+- [ ] Mobile responsiveness
+- [ ] Accessibility
+
+### Phase 11: Production Deployment
+- [ ] Vercel, Render, Neon, Upstash, Gmail SMTP, Sentry
+
+---
+
+## Quick Commands
 ```powershell
 # Backend
 cd C:\Projects\Synod\backend\src\Synod.Api
 dotnet build
 dotnet run
 
-# Frontend
+# Frontend  
 cd C:\Projects\Synod\frontend
 pnpm dev
 
@@ -347,57 +193,5 @@ cd C:\Projects\Synod
 git add .
 git commit -m "message"
 git push origin main
-
-# Database
-docker exec -it synod-postgres psql -U synod -d synod
-# Then: SELECT * FROM "TableName";
-# Exit: \q
-
-# EF Migrations
-dotnet ef migrations add MigrationName
-dotnet ef database update
 ```
 
----
-
-## Remaining Phases
-
-### Phase 8: Event Collaboration ✅ COMPLETE
-- [x] Event hooks (useEvents.ts)
-- [x] Events list page
-- [x] Create event page
-- [x] Event detail page with approvals
-- [x] Approve/reject UI
-
-### Phase 9: Activity & Audit Logs
-- [ ] Audit log service
-- [ ] Activity feed API
-- [ ] Activity page for leaders
-- [ ] Admin audit log view
-
-### Phase 10: Polish & Testing
-- [ ] Loading states audit
-- [ ] Error boundaries
-- [ ] Mobile responsiveness
-- [ ] Accessibility
-- [ ] E2E tests
-
-### Phase 11: Production Deployment
-- [ ] Vercel (frontend)
-- [ ] Render (backend)
-- [ ] Neon (PostgreSQL)
-- [ ] Upstash (Redis)
-- [ ] Gmail SMTP
-- [ ] Sentry monitoring
-
----
-
-## Notes
-
-- TipTap editor requires `immediatelyRender: false` for SSR
-- Public forms are at `/f/[slug]` (not `/forms/[slug]` due to route conflicts)
-- Member auto-creation detects email fields by `type: "email"` in form field definitions
-- All DateTime values sent to PostgreSQL must have `DateTimeKind.Utc`
-- API responses wrap data in `{ success: true, data: {...} }` format
-
-'@ | Out-File -FilePath "CONTEXT_BRIDGE.md" -Encoding UTF8

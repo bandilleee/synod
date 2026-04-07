@@ -62,7 +62,7 @@ public class FormsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateFormRequest request)
     {
-        var form = await _formService.UpdateAsync(id, request, GetCurrentUserId()!.Value);
+        var form = await _formService.UpdateAsync(id, request);
         if (form == null)
             return NotFound(ApiResponse<object>.Fail("Form not found"));
 
@@ -72,7 +72,7 @@ public class FormsController : ControllerBase
     [HttpPost("{id}/publish")]
     public async Task<IActionResult> Publish(Guid id)
     {
-        var result = await _formService.PublishAsync(id, GetCurrentUserId()!.Value);
+        var result = await _formService.PublishAsync(id);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Form not found"));
 
@@ -82,7 +82,7 @@ public class FormsController : ControllerBase
     [HttpPost("{id}/close")]
     public async Task<IActionResult> Close(Guid id)
     {
-        var result = await _formService.CloseAsync(id, GetCurrentUserId()!.Value);
+        var result = await _formService.CloseAsync(id);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Form not found"));
 
@@ -92,7 +92,7 @@ public class FormsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var result = await _formService.DeleteAsync(id, GetCurrentUserId()!.Value);
+        var result = await _formService.DeleteAsync(id);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Form not found"));
 

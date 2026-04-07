@@ -23,17 +23,20 @@ public class AuthService : IAuthService
     private readonly IJwtTokenGenerator _jwt;
     private readonly IPasswordHasher _hasher;
     private readonly IConfiguration _config;
+    private readonly IActivityService _activityService;
 
     public AuthService(
         SynodDbContext db,
         IJwtTokenGenerator jwt,
         IPasswordHasher hasher,
-        IConfiguration config)
+        IConfiguration config,
+        IActivityService activityService)
     {
         _db = db;
         _jwt = jwt;
         _hasher = hasher;
         _config = config;
+        _activityService = activityService;
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
@@ -50,6 +53,16 @@ public class AuthService : IAuthService
 
         if (user.Status != UserStatus.Active)
             return null;
+
+        // Log login activity
+        await _activityService.LogAsync(
+            AuditAction.UserLoggedIn,
+            user.Id,
+            "User",
+            user.Id,
+            null,
+            new { email = user.Email }
+        );
 
         return await GenerateAuthResponseAsync(user);
     }
@@ -169,3 +182,5 @@ public class AuthService : IAuthService
         OrganizationName = user.Organization?.Name
     };
 }
+
+

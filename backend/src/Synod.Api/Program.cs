@@ -53,6 +53,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IFormService, FormService>();
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
 builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 
 // === CORS ===
@@ -135,6 +136,7 @@ using (var scope = app.Services.CreateScope())
 // === Start ===
 Log.Information("Synod API starting on {Urls}", app.Urls);
 app.Run();
+
 
 
 

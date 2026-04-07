@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Synod.Api.Models.Responses;
@@ -48,7 +49,7 @@ public class MembersController : ControllerBase
     [HttpPost("{id}/resubscribe")]
     public async Task<IActionResult> Resubscribe(Guid id)
     {
-        var result = await _memberService.ResubscribeAsync(id);
+        var result = await _memberService.ResubscribeAsync(id, GetCurrentUserId()!.Value);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Member not found"));
 
@@ -58,7 +59,7 @@ public class MembersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var result = await _memberService.DeleteAsync(id);
+        var result = await _memberService.DeleteAsync(id, GetCurrentUserId()!.Value);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Member not found"));
 
@@ -70,6 +71,12 @@ public class MembersController : ControllerBase
     {
         var members = await _memberService.ExportAsync(subscribedOnly);
         return Ok(ApiResponse<List<MemberDto>>.Ok(members));
+    }
+
+    private Guid? GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(claim, out var id) ? id : null;
     }
 }
 
@@ -94,3 +101,5 @@ public class UnsubscribeController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { }, "You have been unsubscribed successfully"));
     }
 }
+
+

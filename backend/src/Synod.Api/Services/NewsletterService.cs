@@ -14,7 +14,7 @@ public interface INewsletterService
     Task<NewsletterDetailDto?> GetByIdAsync(Guid id);
     Task<NewsletterDto> CreateAsync(CreateNewsletterRequest request, Guid userId);
     Task<NewsletterDto?> UpdateAsync(Guid id, UpdateNewsletterRequest request);
-    Task<bool> DeleteAsync(Guid id);
+    Task<bool> DeleteAsync(Guid id, Guid userId);
     Task<string> GeneratePreviewHtmlAsync(Guid id);
     Task<bool> SendTestEmailAsync(Guid id, string email, Guid userId);
     Task<bool> SendNewsletterAsync(Guid id, Guid userId);
@@ -26,11 +26,13 @@ public class NewsletterService : INewsletterService
 {
     private readonly SynodDbContext _db;
     private readonly IEmailService _emailService;
+    private readonly IActivityService _activityService;
 
-    public NewsletterService(SynodDbContext db, IEmailService emailService)
+    public NewsletterService(SynodDbContext db, IEmailService emailService, IActivityService activityService)
     {
         _db = db;
         _emailService = emailService;
+        _activityService = activityService;
     }
 
     public async Task<List<NewsletterDto>> GetAllAsync()
@@ -81,6 +83,15 @@ public class NewsletterService : INewsletterService
 
         await _db.Entry(newsletter).Reference(n => n.CreatedBy).LoadAsync();
 
+        await _activityService.LogAsync(
+            AuditAction.NewsletterCreated,
+            userId,
+            "Newsletter",
+            newsletter.Id,
+            null,
+            new { title = newsletter.Title }
+        );
+
         return MapToDto(newsletter);
     }
 
@@ -113,7 +124,7 @@ public class NewsletterService : INewsletterService
         return MapToDto(newsletter);
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
         var newsletter = await _db.Newsletters.FirstOrDefaultAsync(n => n.Id == id);
         if (newsletter == null) return false;
@@ -122,8 +133,19 @@ public class NewsletterService : INewsletterService
         if (newsletter.Status != NewsletterStatus.Draft)
             return false;
 
+        var title = newsletter.Title;
         _db.Newsletters.Remove(newsletter);
         await _db.SaveChangesAsync();
+
+        await _activityService.LogAsync(
+            AuditAction.NewsletterDeleted,
+            userId,
+            "Newsletter",
+            id,
+            new { title },
+            null
+        );
+
         return true;
     }
 
@@ -223,6 +245,16 @@ public class NewsletterService : INewsletterService
         newsletter.SentAt = DateTime.UtcNow;
         newsletter.RecipientCount = successCount;
         await _db.SaveChangesAsync();
+
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.NewsletterSent,
+            userId,
+            "Newsletter",
+            newsletter.Id,
+            null,
+            new { recipientCount = successCount, title = newsletter.Title }
+        );
 
         return true;
     }
@@ -539,3 +571,6 @@ public class NewsletterService : INewsletterService
         return html.Replace("{{UNSUBSCRIBE}}", link);
     }
 }
+
+
+

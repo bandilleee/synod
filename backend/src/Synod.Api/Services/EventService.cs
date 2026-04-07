@@ -25,11 +25,13 @@ public class EventService : IEventService
 {
     private readonly SynodDbContext _db;
     private readonly IEmailService _emailService;
+    private readonly IActivityService _activityService;
 
-    public EventService(SynodDbContext db, IEmailService emailService)
+    public EventService(SynodDbContext db, IEmailService emailService, IActivityService activityService)
     {
         _db = db;
         _emailService = emailService;
+        _activityService = activityService;
     }
 
     public async Task<List<EventDto>> GetAllAsync()
@@ -233,6 +235,20 @@ public class EventService : IEventService
         approval.Event.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.EventApproved,
+            userId,
+            "Event",
+            eventId,
+            null,
+            new { 
+                title = approval.Event.Title, 
+                currentApprovals = approval.Event.CurrentApprovals, 
+                requiredApprovals = approval.Event.RequiredApprovals 
+            }
+        );
+
         return true;
     }
 
@@ -267,6 +283,16 @@ public class EventService : IEventService
             );
         }
         catch { }
+
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.EventRejected,
+            userId,
+            "Event",
+            eventId,
+            null,
+            new { title = approval.Event.Title, reason = comment }
+        );
 
         return true;
     }
@@ -491,3 +517,7 @@ public class EventService : IEventService
 </html>";
     }
 }
+
+
+
+

@@ -86,7 +86,11 @@ public class NewslettersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var result = await _newsletterService.DeleteAsync(id);
+        var userId = GetCurrentUserId();
+        if (userId == null)
+            return Unauthorized();
+
+        var result = await _newsletterService.DeleteAsync(id, userId.Value);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Newsletter not found or cannot be deleted"));
 
@@ -142,3 +146,4 @@ public class NewslettersController : ControllerBase
         return User.FindFirst(ClaimTypes.Role)?.Value;
     }
 }
+

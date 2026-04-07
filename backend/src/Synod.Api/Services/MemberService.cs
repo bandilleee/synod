@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Synod.Api.Data;
+using Synod.Api.Models;
 using Synod.Api.Models.Entities;
 using Synod.Api.Models.Responses;
 
@@ -12,8 +13,8 @@ public interface IMemberService
     Task<MemberDto?> GetByEmailAsync(string email);
     Task<MemberDto?> CreateOrUpdateFromSubmissionAsync(string email, string? name, string? phone, string? metadataJson, Guid? sourceFormId);
     Task<bool> UnsubscribeAsync(string token);
-    Task<bool> ResubscribeAsync(Guid id);
-    Task<bool> DeleteAsync(Guid id);
+    Task<bool> ResubscribeAsync(Guid id, Guid userId);
+    Task<bool> DeleteAsync(Guid id, Guid userId);
     Task<MemberStatsDto> GetStatsAsync();
     Task<List<MemberDto>> ExportAsync(bool subscribedOnly = true);
 }
@@ -21,10 +22,12 @@ public interface IMemberService
 public class MemberService : IMemberService
 {
     private readonly SynodDbContext _db;
+    private readonly IActivityService _activityService;
 
-    public MemberService(SynodDbContext db)
+    public MemberService(SynodDbContext db, IActivityService activityService)
     {
         _db = db;
+        _activityService = activityService;
     }
 
     public async Task<MemberListDto> GetAllAsync(string? search = null, bool? subscribed = null, int page = 1, int pageSize = 20)
@@ -137,7 +140,7 @@ public class MemberService : IMemberService
         return true;
     }
 
-    public async Task<bool> ResubscribeAsync(Guid id)
+    public async Task<bool> ResubscribeAsync(Guid id, Guid userId)
     {
         var member = await _db.Members.FindAsync(id);
         if (member == null)
@@ -146,17 +149,38 @@ public class MemberService : IMemberService
         member.IsSubscribed = true;
         member.UnsubscribedAt = null;
         await _db.SaveChangesAsync();
+
+        await _activityService.LogAsync(
+            AuditAction.MemberUpdated,
+            userId,
+            "Member",
+            id,
+            null,
+            new { email = member.Email, action = "resubscribed" }
+        );
+
         return true;
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
         var member = await _db.Members.FindAsync(id);
         if (member == null)
             return false;
 
+        var email = member.Email;
         _db.Members.Remove(member);
         await _db.SaveChangesAsync();
+
+        await _activityService.LogAsync(
+            AuditAction.MemberDeleted,
+            userId,
+            "Member",
+            id,
+            new { email },
+            null
+        );
+
         return true;
     }
 
@@ -214,3 +238,4 @@ public class MemberService : IMemberService
         };
     }
 }
+

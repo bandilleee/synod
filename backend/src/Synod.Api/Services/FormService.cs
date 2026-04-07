@@ -17,10 +17,10 @@ public interface IFormService
     Task<FormDetailDto?> GetBySlugAsync(string slug);
     Task<bool> SlugExistsAsync(string slug);
     Task<FormDto?> CreateAsync(CreateFormRequest request, Guid userId);
-    Task<FormDto?> UpdateAsync(Guid id, UpdateFormRequest request);
-    Task<bool> DeleteAsync(Guid id);
-    Task<bool> PublishAsync(Guid id);
-    Task<bool> CloseAsync(Guid id);
+    Task<FormDto?> UpdateAsync(Guid id, UpdateFormRequest request, Guid userId);
+    Task<bool> DeleteAsync(Guid id, Guid userId);
+    Task<bool> PublishAsync(Guid id, Guid userId);
+    Task<bool> CloseAsync(Guid id, Guid userId);
     Task<FormSubmissionDto?> SubmitAsync(string slug, SubmitFormRequest request, string? ipAddress, string? userAgent);
     Task<FormSubmissionListDto> GetSubmissionsAsync(Guid formId, int page = 1, int pageSize = 50);
 }
@@ -28,10 +28,12 @@ public interface IFormService
 public class FormService : IFormService
 {
     private readonly SynodDbContext _db;
+    private readonly IActivityService _activityService;
 
-    public FormService(SynodDbContext db)
+    public FormService(SynodDbContext db, IActivityService activityService)
     {
         _db = db;
+        _activityService = activityService;
     }
 
     public async Task<List<FormDto>> GetAllAsync()
@@ -105,10 +107,20 @@ public class FormService : IFormService
         // Reload with CreatedBy
         await _db.Entry(form).Reference(f => f.CreatedBy).LoadAsync();
 
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.FormCreated,
+            userId,
+            "Form",
+            form.Id,
+            null,
+            new { title = form.Title, slug = form.Slug }
+        );
+
         return MapToDto(form);
     }
 
-    public async Task<FormDto?> UpdateAsync(Guid id, UpdateFormRequest request)
+    public async Task<FormDto?> UpdateAsync(Guid id, UpdateFormRequest request, Guid userId)
     {
         var form = await _db.Forms
             .Include(f => f.CreatedBy)
@@ -130,17 +142,28 @@ public class FormService : IFormService
         return MapToDto(form);
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
         var form = await _db.Forms.FirstOrDefaultAsync(f => f.Id == id);
         if (form == null) return false;
 
+        var title = form.Title;
         _db.Forms.Remove(form);
         await _db.SaveChangesAsync();
+
+        await _activityService.LogAsync(
+            AuditAction.FormDeleted,
+            userId,
+            "Form",
+            id,
+            new { title },
+            null
+        );
+
         return true;
     }
 
-    public async Task<bool> PublishAsync(Guid id)
+    public async Task<bool> PublishAsync(Guid id, Guid userId)
     {
         var form = await _db.Forms.FirstOrDefaultAsync(f => f.Id == id);
         if (form == null) return false;
@@ -149,10 +172,19 @@ public class FormService : IFormService
         form.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        await _activityService.LogAsync(
+            AuditAction.FormPublished,
+            userId,
+            "Form",
+            id,
+            null,
+            new { title = form.Title }
+        );
+
         return true;
     }
 
-    public async Task<bool> CloseAsync(Guid id)
+    public async Task<bool> CloseAsync(Guid id, Guid userId)
     {
         var form = await _db.Forms.FirstOrDefaultAsync(f => f.Id == id);
         if (form == null) return false;
@@ -160,6 +192,15 @@ public class FormService : IFormService
         form.Status = FormStatus.Closed;
         form.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await _activityService.LogAsync(
+            AuditAction.FormClosed,
+            userId,
+            "Form",
+            id,
+            null,
+            new { title = form.Title }
+        );
 
         return true;
     }
@@ -272,6 +313,16 @@ public class FormService : IFormService
 
         await _db.SaveChangesAsync();
 
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.FormSubmissionReceived,
+            null,
+            "Form",
+            form.Id,
+            null,
+            new { formTitle = form.Title, email = member?.Email }
+        );
+
         return new FormSubmissionDto
         {
             Id = submission.Id,
@@ -375,3 +426,10 @@ public class FormService : IFormService
             .Trim('-');
     }
 }
+
+
+
+
+
+
+

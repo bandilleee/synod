@@ -3,8 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/stores"
-import { AdminSidebar } from "@/components/shared/AdminSidebar"
-import { LoadingScreen } from "@/components/shared"
+import { AdminSidebar, AdminMobileNav, LoadingScreen } from "@/components/shared"
 
 export default function AdminLayout({
   children,
@@ -36,10 +35,15 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-black flex flex-col md:flex-row">
+      {/* Mobile Navigation */}
+      <AdminMobileNav />
+      
+      {/* Desktop Sidebar */}
       <AdminSidebar />
+      
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {children}
         </div>
       </main>

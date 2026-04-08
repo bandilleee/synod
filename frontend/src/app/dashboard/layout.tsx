@@ -3,8 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/stores"
-import { DashboardSidebar } from "@/components/shared/DashboardSidebar"
-import { LoadingScreen } from "@/components/shared"
+import { DashboardSidebar, MobileNav, LoadingScreen } from "@/components/shared"
 
 export default function DashboardLayout({
   children,
@@ -33,10 +32,15 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-black flex flex-col md:flex-row">
+      {/* Mobile Navigation */}
+      <MobileNav />
+      
+      {/* Desktop Sidebar */}
       <DashboardSidebar />
+      
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {children}
         </div>
       </main>

@@ -1,11 +1,16 @@
+import { AuroraBackground } from "@/components/ui/aurora-background"
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050505] p-4">
-      {children}
+    <div className="relative min-h-screen flex items-center justify-center p-4">
+      <AuroraBackground />
+      <div className="relative z-10 w-full flex items-center justify-center">
+        {children}
+      </div>
     </div>
   )
 }

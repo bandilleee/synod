@@ -30,11 +30,13 @@ export default function AdminDashboardPage() {
               title="Organizations"
               value={stats?.totalOrganizations ?? 0}
               icon={Building2}
+              
             />
             <StatCard
               title="Leaders"
               value={stats?.totalLeaders ?? 0}
               icon={Users}
+              
             />
             <StatCard
               title="Members"

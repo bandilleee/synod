@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { 
@@ -19,7 +20,7 @@ import { useRouter } from "next/navigation"
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutGrid },
   { href: "/dashboard/forms", label: "Forms", icon: FileText },
-  { href: "/dashboard/newsletters", label: "Newsletters", icon: Mail },
+  { href: "/dashboard/newsletters", label: "Newsletter Studio", icon: Mail },
   { href: "/dashboard/events", label: "Events", icon: Calendar },
   { href: "/dashboard/members", label: "Members", icon: Users },
   { href: "/dashboard/activity", label: "Activity", icon: Activity },
@@ -54,12 +55,16 @@ export function DashboardSidebar() {
   }
 
   return (
-    <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-zinc-950/30 h-screen sticky top-0">
-      <div className="p-6 flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 bg-white/5 rounded border border-white/10 flex items-center justify-center text-white">
-          <span className="text-sm font-bold">S</span>
-        </div>
-        <span className="text-zinc-100 font-semibold tracking-tight text-sm">SYNOD</span>
+    <aside className="hidden md:flex flex-col w-64 border-r border-white/5 bg-black h-screen sticky top-0">
+      <div className="p-6 mb-4">
+        <Image
+          src="/logo+name-bg.png"
+          alt="Synod"
+          width={200}
+          height={95}
+          className="h-auto w-66"
+          priority
+        />
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
@@ -89,7 +94,7 @@ export function DashboardSidebar() {
 
       <div className="p-4 border-t border-white/5">
         <div className="flex items-center gap-3 p-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-500 flex items-center justify-center text-xs text-white font-bold border border-white/10">
+          <div className="w-8 h-8 rounded-full bg-linear-to-tr from-zinc-700 to-zinc-500 flex items-center justify-center text-xs text-white font-bold border border-white/10">
             {user?.name?.charAt(0) || "U"}
           </div>
           <div className="flex-1 min-w-0">

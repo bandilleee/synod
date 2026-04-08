@@ -103,7 +103,13 @@ export default function OrganizationsPage() {
                   <TableCell className="text-zinc-400">{org.type}</TableCell>
                   <TableCell className="text-zinc-400">{getLeaderCount(org)}</TableCell>
                   <TableCell>
-                    <Badge variant={org.isActive ? "default" : "secondary"}>
+                    <Badge
+                      variant="outline"
+                      className={org.isActive
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-zinc-500/30 bg-zinc-500/10 text-zinc-300"
+                      }
+                    >
                       {org.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>

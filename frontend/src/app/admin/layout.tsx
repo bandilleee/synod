@@ -36,7 +36,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] flex">
+    <div className="min-h-screen bg-black flex">
       <AdminSidebar />
       <main className="flex-1 overflow-auto">
         <div className="p-8">

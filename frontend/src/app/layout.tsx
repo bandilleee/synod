@@ -1,14 +1,19 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Montserrat } from "next/font/google"
 import "./globals.css"
 import { QueryProvider } from "@/components/shared"
 import { Toaster } from "@/components/ui/sonner"
 
-const inter = Inter({ subsets: ["latin"] })
+const montserrat = Montserrat({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Synod",
   description: "Collaboration platform for community leaders",
+  icons: {
+    icon: [{ url: "/logo-bg.png", type: "image/png" }],
+    shortcut: "/logo-bg.png",
+    apple: "/logo-bg.png",
+  },
 }
 
 export default function RootLayout({
@@ -18,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className + " bg-[#050505] text-zinc-400 antialiased"}>
+      <body className={montserrat.className + " bg-[#050505] text-zinc-400 antialiased"}>
         <QueryProvider>
           {children}
           <Toaster />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -50,9 +51,19 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md bg-zinc-900/50 border-zinc-800">
+    <Card className="w-full max-w-xl bg-black/80 border-b-background backdrop-blur-xl shadow-2xl">
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl text-white">Synod</CardTitle>
+        <div className="mx-auto mb-2">
+          <Image
+            src="/logo+name-bg.png"
+            alt="Synod"
+            width={200}
+            height={150}
+            className="h-auto w-60 sm:w-80"
+            priority
+          />
+        </div>
+        <CardTitle className="sr-only">Synod</CardTitle>
         <CardDescription>Sign in to your account</CardDescription>
       </CardHeader>
       <CardContent>

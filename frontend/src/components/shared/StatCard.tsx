@@ -6,9 +6,10 @@ interface StatCardProps {
   value: number
   icon: LucideIcon
   className?: string
+  valueClassName?: string
 }
 
-export function StatCard({ title, value, icon: Icon, className }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, className, valueClassName }: StatCardProps) {
   return (
     <div className={cn(
       "p-6 border border-white/5 rounded-lg bg-zinc-900/30",
@@ -20,7 +21,7 @@ export function StatCard({ title, value, icon: Icon, className }: StatCardProps)
           <Icon className="w-4 h-4 text-zinc-400" />
         </div>
       </div>
-      <p className="text-3xl font-semibold text-white">{value}</p>
+      <p className={cn("text-3xl font-semibold text-white", valueClassName)}>{value}</p>
     </div>
   )
 }

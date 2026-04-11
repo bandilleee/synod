@@ -29,11 +29,13 @@ public class FormService : IFormService
 {
     private readonly SynodDbContext _db;
     private readonly IActivityService _activityService;
+    private readonly IEmailService _emailService;
 
-    public FormService(SynodDbContext db, IActivityService activityService)
+    public FormService(SynodDbContext db, IActivityService activityService, IEmailService emailService)
     {
         _db = db;
         _activityService = activityService;
+        _emailService = emailService;
     }
 
     public async Task<List<FormDto>> GetAllAsync()
@@ -117,6 +119,18 @@ public class FormService : IFormService
             new { title = form.Title, slug = form.Slug }
         );
 
+        // Send email to all leaders
+        var creatorName = form.CreatedBy?.Name ?? "A leader";
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+        
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendFormCreatedEmailAsync(leaderEmails, creatorName, form.Title);
+        }
+
         return MapToDto(form);
     }
 
@@ -126,6 +140,8 @@ public class FormService : IFormService
             .Include(f => f.CreatedBy)
             .FirstOrDefaultAsync(f => f.Id == id);
         if (form == null) return null;
+
+        var oldTitle = form.Title;
 
         if (!string.IsNullOrEmpty(request.Title))
             form.Title = request.Title;
@@ -139,6 +155,21 @@ public class FormService : IFormService
         form.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Get editor name
+        var editor = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var editorName = editor?.Name ?? "A leader";
+
+        // Send email to all leaders
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+        
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendFormUpdatedEmailAsync(leaderEmails, editorName, form.Title);
+        }
+
         return MapToDto(form);
     }
 
@@ -148,6 +179,17 @@ public class FormService : IFormService
         if (form == null) return false;
 
         var title = form.Title;
+        
+        // Get deleter name before deleting
+        var deleter = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var deleterName = deleter?.Name ?? "A leader";
+
+        // Get leader emails before deleting
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+
         _db.Forms.Remove(form);
         await _db.SaveChangesAsync();
 
@@ -159,6 +201,12 @@ public class FormService : IFormService
             new { title },
             null
         );
+
+        // Send email to all leaders
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendFormDeletedEmailAsync(leaderEmails, deleterName, title);
+        }
 
         return true;
     }
@@ -426,10 +474,3 @@ public class FormService : IFormService
             .Trim('-');
     }
 }
-
-
-
-
-
-
-

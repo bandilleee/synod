@@ -26,19 +26,22 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher _hasher;
     private readonly IConfiguration _config;
     private readonly IActivityService _activityService;
+    private readonly IEmailService _emailService;
 
     public AuthService(
         SynodDbContext db,
         IJwtTokenGenerator jwt,
         IPasswordHasher hasher,
         IConfiguration config,
-        IActivityService activityService)
+        IActivityService activityService,
+        IEmailService emailService)
     {
         _db = db;
         _jwt = jwt;
         _hasher = hasher;
         _config = config;
         _activityService = activityService;
+        _emailService = emailService;
     }
 
     public async Task<AuthResponse?> LoginAsync(LoginRequest request)
@@ -124,6 +127,21 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync();
 
         user.Organization = invitation.Organization;
+
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.UserAcceptedInvitation,
+            user.Id,
+            "User",
+            user.Id,
+            null,
+            new { email = user.Email, organization = invitation.Organization?.Name }
+        );
+
+        // Send welcome email
+        var orgName = invitation.Organization?.Name ?? "Synod";
+        await _emailService.SendWelcomeEmailAsync(user.Email, user.Name, orgName);
+
         return await GenerateAuthResponseAsync(user);
     }
 
@@ -197,6 +215,9 @@ public class AuthService : IAuthService
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Send confirmation email
+        await _emailService.SendProfileUpdatedEmailAsync(user.Email, user.Name);
+
         return MapToDto(user);
     }
 
@@ -215,6 +236,9 @@ public class AuthService : IAuthService
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Send confirmation email
+        await _emailService.SendPasswordChangedEmailAsync(user.Email, user.Name);
+
         return true;
     }
 
@@ -230,7 +254,3 @@ public class AuthService : IAuthService
         OrganizationName = user.Organization?.Name
     };
 }
-
-
-
-

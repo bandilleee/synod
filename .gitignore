@@ -62,3 +62,5 @@ project.fragment.lock.json
 # ===== Misc =====
 .vercel
 .turbo
+
+.fake

@@ -11,19 +11,21 @@ public interface IOrganizationService
 {
     Task<List<OrganizationDto>> GetAllAsync();
     Task<OrganizationDetailDto?> GetByIdAsync(Guid id);
-    Task<OrganizationDto?> CreateAsync(CreateOrganizationRequest request);
-    Task<OrganizationDto?> UpdateAsync(Guid id, UpdateOrganizationRequest request);
-    Task<bool> DeleteAsync(Guid id);
+    Task<OrganizationDto?> CreateAsync(CreateOrganizationRequest request, Guid adminUserId);
+    Task<OrganizationDto?> UpdateAsync(Guid id, UpdateOrganizationRequest request, Guid adminUserId);
+    Task<bool> DeleteAsync(Guid id, Guid adminUserId);
     Task<bool> SlugExistsAsync(string slug);
 }
 
 public class OrganizationService : IOrganizationService
 {
     private readonly SynodDbContext _db;
+    private readonly IEmailService _emailService;
 
-    public OrganizationService(SynodDbContext db)
+    public OrganizationService(SynodDbContext db, IEmailService emailService)
     {
         _db = db;
+        _emailService = emailService;
     }
 
     public async Task<List<OrganizationDto>> GetAllAsync()
@@ -76,7 +78,7 @@ public class OrganizationService : IOrganizationService
         };
     }
 
-    public async Task<OrganizationDto?> CreateAsync(CreateOrganizationRequest request)
+    public async Task<OrganizationDto?> CreateAsync(CreateOrganizationRequest request, Guid adminUserId)
     {
         if (await SlugExistsAsync(request.Slug))
             return null;
@@ -98,6 +100,13 @@ public class OrganizationService : IOrganizationService
         _db.Organizations.Add(org);
         await _db.SaveChangesAsync();
 
+        // Get admin email and send notification
+        var admin = await _db.Users.FindAsync(adminUserId);
+        if (admin != null)
+        {
+            await _emailService.SendOrgCreatedEmailAsync(admin.Email, org.Name, org.Type.ToString());
+        }
+
         return new OrganizationDto
         {
             Id = org.Id,
@@ -112,7 +121,7 @@ public class OrganizationService : IOrganizationService
         };
     }
 
-    public async Task<OrganizationDto?> UpdateAsync(Guid id, UpdateOrganizationRequest request)
+    public async Task<OrganizationDto?> UpdateAsync(Guid id, UpdateOrganizationRequest request, Guid adminUserId)
     {
         var org = await _db.Organizations
             .Include(o => o.Users)
@@ -126,6 +135,13 @@ public class OrganizationService : IOrganizationService
         org.IsActive = request.IsActive;
 
         await _db.SaveChangesAsync();
+
+        // Get admin email and send notification
+        var admin = await _db.Users.FindAsync(adminUserId);
+        if (admin != null)
+        {
+            await _emailService.SendOrgUpdatedEmailAsync(admin.Email, org.Name);
+        }
 
         return new OrganizationDto
         {
@@ -141,13 +157,48 @@ public class OrganizationService : IOrganizationService
         };
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid adminUserId)
     {
-        var org = await _db.Organizations.FindAsync(id);
+        var org = await _db.Organizations
+            .Include(o => o.Users)
+            .FirstOrDefaultAsync(o => o.Id == id);
+            
         if (org == null) return false;
 
+        var orgName = org.Name;
+        
+        // Get all leaders in this org to notify them
+        var leadersToNotify = org.Users
+            .Where(u => u.Role == UserRole.Leader)
+            .Select(u => new { u.Email, u.Name })
+            .ToList();
+
+        // Get admin email
+        var admin = await _db.Users.FindAsync(adminUserId);
+        var adminEmail = admin?.Email;
+
+        // Remove all users from this org (cascade delete)
+        foreach (var user in org.Users.ToList())
+        {
+            _db.Users.Remove(user);
+        }
+
+        // Remove the organization
         _db.Organizations.Remove(org);
         await _db.SaveChangesAsync();
+
+        // Send notification to admin
+        if (adminEmail != null)
+        {
+            await _emailService.SendOrgDeletedEmailAsync(adminEmail, orgName);
+        }
+
+        // Send notification to all affected leaders
+        foreach (var leader in leadersToNotify)
+        {
+            await _emailService.SendOrgAccessRevokedEmailAsync(leader.Email, leader.Name, orgName);
+        }
+
         return true;
     }
 

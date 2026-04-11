@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Plus, Users, MoreHorizontal, UserX, UserCheck, Trash2 } from "lucide-react"
-import { PageHeader, EmptyState } from "@/components/shared"
+import { PageHeader, EmptyState, ConfirmDialog } from "@/components/shared"
 import { TableSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -35,28 +35,66 @@ import {
   useDeleteLeader,
 } from "@/lib/hooks"
 import { InviteLeaderForm } from "./InviteLeaderForm"
+import { toast } from "sonner"
+
+type Leader = {
+  id: string
+  name: string
+  email: string
+  status: string
+  organization?: { name: string } | null
+}
 
 export default function LeadersPage() {
   const { data: leaders, isLoading } = useLeaders()
   const suspendLeader = useSuspendLeader()
   const reactivateLeader = useReactivateLeader()
   const deleteLeader = useDeleteLeader()
+  
   const [showInviteDialog, setShowInviteDialog] = useState(false)
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [selectedLeader, setSelectedLeader] = useState<Leader | null>(null)
 
-  const handleSuspend = async (id: string) => {
-    if (confirm("Are you sure you want to suspend this leader?")) {
-      await suspendLeader.mutateAsync(id)
+  const handleSuspendClick = (leader: Leader) => {
+    setSelectedLeader(leader)
+    setSuspendDialogOpen(true)
+  }
+
+  const handleSuspendConfirm = async () => {
+    if (!selectedLeader) return
+    try {
+      await suspendLeader.mutateAsync(selectedLeader.id)
+      toast.success("Leader suspended")
+    } catch {
+      toast.error("Failed to suspend leader")
     }
+    setSelectedLeader(null)
   }
 
   const handleReactivate = async (id: string) => {
-    await reactivateLeader.mutateAsync(id)
+    try {
+      await reactivateLeader.mutateAsync(id)
+      toast.success("Leader reactivated")
+    } catch {
+      toast.error("Failed to reactivate leader")
+    }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this leader? This cannot be undone.")) {
-      await deleteLeader.mutateAsync(id)
+  const handleDeleteClick = (leader: Leader) => {
+    setSelectedLeader(leader)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedLeader) return
+    try {
+      await deleteLeader.mutateAsync(selectedLeader.id)
+      toast.success("Leader deleted")
+    } catch {
+      toast.error("Failed to delete leader")
     }
+    setSelectedLeader(null)
   }
 
   const getStatusBadge = (status: string) => {
@@ -135,7 +173,7 @@ export default function LeadersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {leader.status === "Active" ? (
-                          <DropdownMenuItem onClick={() => handleSuspend(leader.id)}>
+                          <DropdownMenuItem onClick={() => handleSuspendClick(leader)}>
                             <UserX className="w-4 h-4 mr-2" />
                             Suspend
                           </DropdownMenuItem>
@@ -147,8 +185,8 @@ export default function LeadersPage() {
                         ) : null}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => handleDelete(leader.id)}
-                          className="text-red-500"
+                          onClick={() => handleDeleteClick(leader)}
+                          className="text-red-500 focus:text-red-500"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
@@ -174,6 +212,26 @@ export default function LeadersPage() {
           <InviteLeaderForm onSuccess={() => setShowInviteDialog(false)} />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={suspendDialogOpen}
+        onOpenChange={setSuspendDialogOpen}
+        title="Suspend Leader"
+        description={"Are you sure you want to suspend " + (selectedLeader?.name || "") + "? They will no longer be able to access the platform until reactivated."}
+        confirmText="Suspend"
+        variant="destructive"
+        onConfirm={handleSuspendConfirm}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Leader"
+        description={"Are you sure you want to delete " + (selectedLeader?.name || "") + "? This action cannot be undone and they will be permanently removed from the platform."}
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

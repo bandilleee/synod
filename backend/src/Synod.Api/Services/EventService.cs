@@ -113,6 +113,16 @@ public class EventService : IEventService
         // Load creator for DTO
         await _db.Entry(evt).Reference(e => e.CreatedBy).LoadAsync();
 
+        // Log activity
+        await _activityService.LogAsync(
+            AuditAction.EventCreated,
+            userId,
+            "Event",
+            evt.Id,
+            null,
+            new { title = evt.Title, date = evt.Date }
+        );
+
         // Send email notifications to other leaders
         var creator = await _db.Users.FindAsync(userId);
         foreach (var leader in otherLeaders)
@@ -186,15 +196,33 @@ public class EventService : IEventService
 
     public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
-        var evt = await _db.Events.FirstOrDefaultAsync(e => e.Id == id);
+        var evt = await _db.Events
+            .Include(e => e.CreatedBy)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (evt == null) return false;
 
         // Only creator can delete, and only if not completed
         if (evt.CreatedById != userId) return false;
         if (evt.Status == EventStatus.Completed) return false;
 
+        var eventTitle = evt.Title;
+        var deleterName = evt.CreatedBy?.Name ?? "A leader";
+
+        // Get all other leader emails before deleting
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+
         _db.Events.Remove(evt);
         await _db.SaveChangesAsync();
+
+        // Send email to all leaders about deletion
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendEventDeletedEmailAsync(leaderEmails, deleterName, eventTitle);
+        }
+
         return true;
     }
 
@@ -273,16 +301,13 @@ public class EventService : IEventService
 
         await _db.SaveChangesAsync();
 
-        // Notify creator that event was rejected
-        try
-        {
-            await _emailService.SendEmailAsync(
-                approval.Event.CreatedBy.Email,
-                "Event Rejected: " + approval.Event.Title,
-                BuildRejectedEmail(approval.Event, approval.User.Name, comment)
-            );
-        }
-        catch { }
+        // Send rejection email using the new method
+        await _emailService.SendEventRejectedEmailAsync(
+            approval.Event.CreatedBy.Email,
+            approval.User?.Name ?? "A leader",
+            approval.Event.Title,
+            comment
+        );
 
         // Log activity
         await _activityService.LogAsync(
@@ -299,16 +324,32 @@ public class EventService : IEventService
 
     public async Task<bool> CancelAsync(Guid id, Guid userId)
     {
-        var evt = await _db.Events.FirstOrDefaultAsync(e => e.Id == id);
+        var evt = await _db.Events
+            .Include(e => e.CreatedBy)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (evt == null) return false;
 
         // Only creator can cancel
         if (evt.CreatedById != userId) return false;
         if (evt.Status == EventStatus.Completed || evt.Status == EventStatus.Cancelled) return false;
 
+        var eventTitle = evt.Title;
+        var cancellerName = evt.CreatedBy?.Name ?? "A leader";
+
         evt.Status = EventStatus.Cancelled;
         evt.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Notify all other leaders about cancellation
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendEventDeletedEmailAsync(leaderEmails, cancellerName, eventTitle + " (Cancelled)");
+        }
 
         return true;
     }
@@ -448,37 +489,6 @@ public class EventService : IEventService
 </html>";
     }
 
-    private string BuildRejectedEmail(Event evt, string rejectorName, string? reason)
-    {
-        return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body {{ font-family: -apple-system, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: #1e293b; color: white; padding: 20px; text-align: center; }}
-        .content {{ padding: 20px; background: #fff; }}
-        .rejected {{ background: #fee2e2; border: 1px solid #ef4444; padding: 15px; border-radius: 8px; margin: 15px 0; }}
-    </style>
-</head>
-<body>
-    <div class='container'>
-        <div class='header'>
-            <h1>SYNOD</h1>
-        </div>
-        <div class='content'>
-            <div class='rejected'>
-                <h3>Event Rejected</h3>
-                <p>Your event <strong>{evt.Title}</strong> was rejected by {rejectorName}.</p>
-                {(string.IsNullOrEmpty(reason) ? "" : $"<p><strong>Reason:</strong> {reason}</p>")}
-            </div>
-        </div>
-    </div>
-</body>
-</html>";
-    }
-
     private string BuildEventUpdatedEmail(Event evt, string editorName)
     {
         return $@"
@@ -517,7 +527,3 @@ public class EventService : IEventService
 </html>";
     }
 }
-
-
-
-

@@ -19,8 +19,9 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // === Database ===
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
 builder.Services.AddDbContext<SynodDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 // === Authentication ===
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -55,6 +56,17 @@ builder.Services.AddScoped<INewsletterService, NewsletterService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IActivityService, ActivityService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
+
+// === Health Checks ===
+var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
+var healthChecks = builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "database", tags: new[] { "db", "postgresql" });
+
+// Only add Redis health check if Redis is configured
+if (!string.IsNullOrEmpty(redisConnectionString))
+{
+    healthChecks.AddRedis(redisConnectionString, name: "redis", tags: new[] { "cache", "redis" });
+}
 
 // === CORS ===
 builder.Services.AddCors(options =>
@@ -125,6 +137,28 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+// === Health Check Endpoint ===
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds + "ms"
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
+
 // === Seed Database ===
 using (var scope = app.Services.CreateScope())
 {
@@ -136,10 +170,3 @@ using (var scope = app.Services.CreateScope())
 // === Start ===
 Log.Information("Synod API starting on {Urls}", app.Urls);
 app.Run();
-
-
-
-
-
-
-

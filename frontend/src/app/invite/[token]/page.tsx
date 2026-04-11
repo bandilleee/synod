@@ -14,6 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api } from "@/lib/api"
 import { useAuthStore } from "@/lib/stores"
 
+// Helper to set cookie (same as in authStore)
+const setCookie = (name: string, value: string, days: number = 7) => {
+  if (typeof document === "undefined") return
+  const expires = new Date()
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`
+}
+
 const acceptSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -54,8 +62,15 @@ export default function AcceptInvitePage() {
       })
 
       const { accessToken, refreshToken, user } = response.data.data
+      
+      // Store in localStorage for API client
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
+      
+      // Also set cookies for middleware (this was missing!)
+      setCookie("accessToken", accessToken, 1) // 1 day for access token
+      setCookie("refreshToken", refreshToken, 7) // 7 days for refresh token
+      
       setUser(user)
       
       setStatus("success")

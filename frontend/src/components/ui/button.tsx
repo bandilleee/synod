@@ -52,6 +52,7 @@ function Button({
     asChild?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  const hydrationProps = asChild ? {} : { suppressHydrationWarning: true }
 
   return (
     <Comp
@@ -59,6 +60,7 @@ function Button({
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      {...hydrationProps}
       {...props}
     />
   )

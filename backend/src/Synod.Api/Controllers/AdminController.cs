@@ -18,6 +18,12 @@ public class AdminController : ControllerBase
         _adminService = adminService;
     }
 
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.Parse(userIdClaim!);
+    }
+
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
@@ -35,7 +41,8 @@ public class AdminController : ControllerBase
     [HttpPost("leaders/{id}/suspend")]
     public async Task<IActionResult> SuspendLeader(Guid id)
     {
-        var result = await _adminService.SuspendUserAsync(id);
+        var adminUserId = GetCurrentUserId();
+        var result = await _adminService.SuspendUserAsync(id, adminUserId);
         if (!result)
             return BadRequest(ApiResponse<object>.Fail("Unable to suspend user"));
 
@@ -55,7 +62,8 @@ public class AdminController : ControllerBase
     [HttpDelete("leaders/{id}")]
     public async Task<IActionResult> DeleteLeader(Guid id)
     {
-        var result = await _adminService.DeleteUserAsync(id);
+        var adminUserId = GetCurrentUserId();
+        var result = await _adminService.DeleteUserAsync(id, adminUserId);
         if (!result)
             return BadRequest(ApiResponse<object>.Fail("Unable to delete user"));
 

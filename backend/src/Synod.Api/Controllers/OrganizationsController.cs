@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Synod.Api.Models.Requests;
@@ -16,6 +17,12 @@ public class OrganizationsController : ControllerBase
     public OrganizationsController(IOrganizationService organizationService)
     {
         _organizationService = organizationService;
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return Guid.Parse(userIdClaim!);
     }
 
     [HttpGet]
@@ -41,7 +48,8 @@ public class OrganizationsController : ControllerBase
         if (await _organizationService.SlugExistsAsync(request.Slug))
             return BadRequest(ApiResponse<object>.Fail("Slug already exists"));
 
-        var organization = await _organizationService.CreateAsync(request);
+        var adminUserId = GetCurrentUserId();
+        var organization = await _organizationService.CreateAsync(request, adminUserId);
         if (organization == null)
             return BadRequest(ApiResponse<object>.Fail("Invalid organization type"));
 
@@ -51,7 +59,8 @@ public class OrganizationsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateOrganizationRequest request)
     {
-        var organization = await _organizationService.UpdateAsync(id, request);
+        var adminUserId = GetCurrentUserId();
+        var organization = await _organizationService.UpdateAsync(id, request, adminUserId);
         if (organization == null)
             return NotFound(ApiResponse<object>.Fail("Organization not found"));
 
@@ -61,7 +70,8 @@ public class OrganizationsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var result = await _organizationService.DeleteAsync(id);
+        var adminUserId = GetCurrentUserId();
+        var result = await _organizationService.DeleteAsync(id, adminUserId);
         if (!result)
             return NotFound(ApiResponse<object>.Fail("Organization not found"));
 

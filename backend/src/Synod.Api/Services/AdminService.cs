@@ -9,18 +9,20 @@ public interface IAdminService
 {
     Task<AdminStatsResponse> GetStatsAsync();
     Task<List<UserDto>> GetAllLeadersAsync();
-    Task<bool> SuspendUserAsync(Guid userId);
+    Task<bool> SuspendUserAsync(Guid userId, Guid adminUserId);
     Task<bool> ReactivateUserAsync(Guid userId);
-    Task<bool> DeleteUserAsync(Guid userId);
+    Task<bool> DeleteUserAsync(Guid userId, Guid adminUserId);
 }
 
 public class AdminService : IAdminService
 {
     private readonly SynodDbContext _db;
+    private readonly IEmailService _emailService;
 
-    public AdminService(SynodDbContext db)
+    public AdminService(SynodDbContext db, IEmailService emailService)
     {
         _db = db;
+        _emailService = emailService;
     }
 
     public async Task<AdminStatsResponse> GetStatsAsync()
@@ -56,14 +58,25 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
-    public async Task<bool> SuspendUserAsync(Guid userId)
+    public async Task<bool> SuspendUserAsync(Guid userId, Guid adminUserId)
     {
-        var user = await _db.Users.FindAsync(userId);
+        var user = await _db.Users
+            .Include(u => u.Organization)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+            
         if (user == null || user.Role == UserRole.SuperAdmin)
             return false;
 
+        var leaderName = user.Name;
+        var leaderEmail = user.Email;
+        var orgName = user.Organization?.Name ?? "the platform";
+
         user.Status = UserStatus.Suspended;
         await _db.SaveChangesAsync();
+
+        // Send email to the suspended leader
+        await _emailService.SendLeaderSuspendedEmailAsync(leaderEmail, leaderName, orgName);
+
         return true;
     }
 
@@ -78,14 +91,35 @@ public class AdminService : IAdminService
         return true;
     }
 
-    public async Task<bool> DeleteUserAsync(Guid userId)
+    public async Task<bool> DeleteUserAsync(Guid userId, Guid adminUserId)
     {
-        var user = await _db.Users.FindAsync(userId);
+        var user = await _db.Users
+            .Include(u => u.Organization)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+            
         if (user == null || user.Role == UserRole.SuperAdmin)
             return false;
 
+        var leaderName = user.Name;
+        var leaderEmail = user.Email;
+        var orgName = user.Organization?.Name ?? "the platform";
+
+        // Get admin email
+        var admin = await _db.Users.FindAsync(adminUserId);
+        var adminEmail = admin?.Email;
+
         _db.Users.Remove(user);
         await _db.SaveChangesAsync();
+
+        // Send email to the removed leader
+        await _emailService.SendLeaderRemovedEmailAsync(leaderEmail, leaderName, orgName);
+
+        // Send confirmation to admin
+        if (adminEmail != null)
+        {
+            await _emailService.SendLeaderRemovedAdminNotificationAsync(adminEmail, leaderName, leaderEmail, orgName);
+        }
+
         return true;
     }
 }

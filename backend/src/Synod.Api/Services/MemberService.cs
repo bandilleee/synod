@@ -23,11 +23,13 @@ public class MemberService : IMemberService
 {
     private readonly SynodDbContext _db;
     private readonly IActivityService _activityService;
+    private readonly IEmailService _emailService;
 
-    public MemberService(SynodDbContext db, IActivityService activityService)
+    public MemberService(SynodDbContext db, IActivityService activityService, IEmailService emailService)
     {
         _db = db;
         _activityService = activityService;
+        _emailService = emailService;
     }
 
     public async Task<MemberListDto> GetAllAsync(string? search = null, bool? subscribed = null, int page = 1, int pageSize = 20)
@@ -168,7 +170,19 @@ public class MemberService : IMemberService
         if (member == null)
             return false;
 
-        var email = member.Email;
+        var memberEmail = member.Email;
+        var memberName = member.Name;
+
+        // Get deleter info
+        var deleter = await _db.Users.FindAsync(userId);
+        var deleterName = deleter?.Name ?? "A leader";
+
+        // Get all other leader emails
+        var leaderEmails = await _db.Users
+            .Where(u => u.Role == UserRole.Leader && u.Status == UserStatus.Active && u.Id != userId)
+            .Select(u => u.Email)
+            .ToListAsync();
+
         _db.Members.Remove(member);
         await _db.SaveChangesAsync();
 
@@ -177,9 +191,15 @@ public class MemberService : IMemberService
             userId,
             "Member",
             id,
-            new { email },
+            new { email = memberEmail },
             null
         );
+
+        // Send email to all other leaders
+        if (leaderEmails.Any())
+        {
+            await _emailService.SendMemberDeletedEmailAsync(leaderEmails, deleterName, memberEmail, memberName);
+        }
 
         return true;
     }
@@ -238,4 +258,3 @@ public class MemberService : IMemberService
         };
     }
 }
-

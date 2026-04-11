@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Plus, Building2, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
-import { PageHeader, EmptyState } from "@/components/shared"
+import { PageHeader, EmptyState, ConfirmDialog } from "@/components/shared"
 import { TableSkeleton } from "@/components/skeletons"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,19 +30,33 @@ import {
 import { useOrganizations, useDeleteOrganization } from "@/lib/hooks"
 import { formatDate } from "@/lib/utils"
 import { OrganizationForm } from "./OrganizationForm"
+import { toast } from "sonner"
 
 type Organization = NonNullable<ReturnType<typeof useOrganizations>["data"]>[number]
 
 export default function OrganizationsPage() {
   const { data: organizations, isLoading } = useOrganizations()
   const deleteOrganization = useDeleteOrganization()
+  
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [orgToDelete, setOrgToDelete] = useState<Organization | null>(null)
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this organization?")) {
-      await deleteOrganization.mutateAsync(id)
+  const handleDeleteClick = (org: Organization) => {
+    setOrgToDelete(org)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!orgToDelete) return
+    try {
+      await deleteOrganization.mutateAsync(orgToDelete.id)
+      toast.success("Organization deleted")
+    } catch {
+      toast.error("Failed to delete organization")
     }
+    setOrgToDelete(null)
   }
 
   const getLeaderCount = (org: Organization) => {
@@ -127,8 +141,8 @@ export default function OrganizationsPage() {
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDelete(org.id)}
-                          className="text-red-500"
+                          onClick={() => handleDeleteClick(org)}
+                          className="text-red-500 focus:text-red-500"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
@@ -167,6 +181,16 @@ export default function OrganizationsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Organization"
+        description={"Are you sure you want to delete \"" + (orgToDelete?.name || "") + "\"? This will also remove all leaders associated with this organization. This action cannot be undone."}
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   )
 }

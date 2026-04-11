@@ -368,11 +368,23 @@ public class EmailService : IEmailService
             var smtpHost = _config["Email:SmtpHost"] ?? "localhost";
             var smtpPort = int.Parse(_config["Email:SmtpPort"] ?? "1025");
             
-            // Use STARTTLS for Gmail and other production SMTP servers
-            // Use None for local development (MailHog)
-            var secureOption = smtpHost == "smtp.gmail.com" || smtpPort == 587
-                ? MailKit.Security.SecureSocketOptions.StartTls
-                : MailKit.Security.SecureSocketOptions.None;
+            // Determine SSL/TLS option based on port and host
+            MailKit.Security.SecureSocketOptions secureOption;
+            if (smtpPort == 465)
+            {
+                // Port 465 uses implicit SSL
+                secureOption = MailKit.Security.SecureSocketOptions.SslOnConnect;
+            }
+            else if (smtpHost == "smtp.gmail.com" || smtpPort == 587)
+            {
+                // Port 587 uses STARTTLS
+                secureOption = MailKit.Security.SecureSocketOptions.StartTls;
+            }
+            else
+            {
+                // Local development (MailHog)
+                secureOption = MailKit.Security.SecureSocketOptions.None;
+            }
             
             await client.ConnectAsync(smtpHost, smtpPort, secureOption);
 
@@ -997,4 +1009,5 @@ public class EmailService : IEmailService
 
     #endregion
 }
+
 

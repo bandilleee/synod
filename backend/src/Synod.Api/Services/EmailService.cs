@@ -364,11 +364,17 @@ public class EmailService : IEmailService
             message.Body = builder.ToMessageBody();
 
             using var client = new SmtpClient();
-            await client.ConnectAsync(
-                _config["Email:SmtpHost"] ?? "localhost",
-                int.Parse(_config["Email:SmtpPort"] ?? "1025"),
-                false
-            );
+            
+            var smtpHost = _config["Email:SmtpHost"] ?? "localhost";
+            var smtpPort = int.Parse(_config["Email:SmtpPort"] ?? "1025");
+            
+            // Use STARTTLS for Gmail and other production SMTP servers
+            // Use None for local development (MailHog)
+            var secureOption = smtpHost == "smtp.gmail.com" || smtpPort == 587
+                ? MailKit.Security.SecureSocketOptions.StartTls
+                : MailKit.Security.SecureSocketOptions.None;
+            
+            await client.ConnectAsync(smtpHost, smtpPort, secureOption);
 
             var username = _config["Email:Username"];
             var password = _config["Email:Password"];
@@ -991,3 +997,4 @@ public class EmailService : IEmailService
 
     #endregion
 }
+

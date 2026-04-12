@@ -1,5 +1,7 @@
-using MailKit.Net.Smtp;
-using MimeKit;
+using sib_api_v3_sdk.Api;
+using sib_api_v3_sdk.Model;
+using sib_api_v3_sdk.Client;
+using Task = System.Threading.Tasks.Task;
 
 namespace Synod.Api.Services;
 
@@ -44,11 +46,28 @@ public class EmailService : IEmailService
 {
     private readonly IConfiguration _config;
     private readonly ILogger<EmailService> _logger;
+    private readonly TransactionalEmailsApi? _brevoApi;
+    private readonly string _fromEmail;
+    private readonly string _fromName;
 
     public EmailService(IConfiguration config, ILogger<EmailService> logger)
     {
         _config = config;
         _logger = logger;
+        _fromEmail = config["Email:FromAddress"] ?? "synodnotify@gmail.com";
+        _fromName = config["Email:FromName"] ?? "Synod";
+
+        var apiKey = config["Email:BrevoApiKey"];
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            Configuration.Default.ApiKey["api-key"] = apiKey;
+            _brevoApi = new TransactionalEmailsApi();
+        }
+        else
+        {
+            _brevoApi = null;
+            _logger.LogWarning("Brevo API key not configured. Emails will not be sent.");
+        }
     }
 
     #region Invitation & Welcome
@@ -350,57 +369,28 @@ public class EmailService : IEmailService
 
     public async Task SendEmailAsync(string toEmail, string subject, string htmlBody)
     {
+        if (_brevoApi == null)
+        {
+            _logger.LogWarning("Email not sent (Brevo not configured): {Subject} to {Email}", subject, toEmail);
+            return;
+        }
+
         try
         {
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(
-                _config["Email:FromName"] ?? "Synod",
-                _config["Email:FromAddress"] ?? "noreply@synod.dev"
-            ));
-            message.To.Add(MailboxAddress.Parse(toEmail));
-            message.Subject = subject;
-
-            var builder = new BodyBuilder { HtmlBody = htmlBody };
-            message.Body = builder.ToMessageBody();
-
-            using var client = new SmtpClient();
-            
-            var smtpHost = _config["Email:SmtpHost"] ?? "localhost";
-            var smtpPort = int.Parse(_config["Email:SmtpPort"] ?? "1025");
-            
-            // Determine SSL/TLS option based on port and host
-            MailKit.Security.SecureSocketOptions secureOption;
-            if (smtpPort == 465)
+            var sendSmtpEmail = new SendSmtpEmail
             {
-                // Port 465 uses implicit SSL
-                secureOption = MailKit.Security.SecureSocketOptions.SslOnConnect;
-            }
-            else if (smtpHost == "smtp.gmail.com" || smtpPort == 587)
-            {
-                // Port 587 uses STARTTLS
-                secureOption = MailKit.Security.SecureSocketOptions.StartTls;
-            }
-            else
-            {
-                // Local development (MailHog)
-                secureOption = MailKit.Security.SecureSocketOptions.None;
-            }
-            
-            await client.ConnectAsync(smtpHost, smtpPort, secureOption);
+                Sender = new SendSmtpEmailSender(_fromName, _fromEmail),
+                To = new List<SendSmtpEmailTo> { new SendSmtpEmailTo(toEmail) },
+                Subject = subject,
+                HtmlContent = htmlBody
+            };
 
-            var username = _config["Email:Username"];
-            var password = _config["Email:Password"];
-            if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
-                await client.AuthenticateAsync(username, password);
-
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-
-            _logger.LogInformation("Email sent to {Email}: {Subject}", toEmail, subject);
+            var result = await Task.Run(() => _brevoApi.SendTransacEmail(sendSmtpEmail));
+            _logger.LogInformation("Email sent to {Email}: {Subject} (MessageId: {MessageId})", toEmail, subject, result.MessageId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}", toEmail);
+            _logger.LogError(ex, "Failed to send email to {Email}: {Subject}", toEmail, subject);
             // Don't throw — email failures shouldn't break the main operation
         }
     }
@@ -1009,5 +999,3 @@ public class EmailService : IEmailService
 
     #endregion
 }
-
-
